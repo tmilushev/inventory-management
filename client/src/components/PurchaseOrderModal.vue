@@ -282,6 +282,7 @@ export default {
         }
         const created = await api.createPurchaseOrder(payload)
         emit('po-created', created)
+        emit('close')
       } catch (err) {
         submitError.value = 'Failed to create purchase order. Please try again.'
         console.error(err)

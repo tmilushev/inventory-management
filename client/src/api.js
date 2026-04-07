@@ -43,6 +43,26 @@ export const api = {
     return response.data
   },
 
+  async getQuarterlyReports(filters = {}) {
+    const params = new URLSearchParams()
+    if (filters.warehouse && filters.warehouse !== 'all') params.append('warehouse', filters.warehouse)
+    if (filters.category && filters.category !== 'all') params.append('category', filters.category)
+    if (filters.month && filters.month !== 'all') params.append('month', filters.month)
+
+    const response = await axios.get(`${API_BASE_URL}/reports/quarterly?${params.toString()}`)
+    return response.data
+  },
+
+  async getMonthlyTrends(filters = {}) {
+    const params = new URLSearchParams()
+    if (filters.warehouse && filters.warehouse !== 'all') params.append('warehouse', filters.warehouse)
+    if (filters.category && filters.category !== 'all') params.append('category', filters.category)
+    if (filters.month && filters.month !== 'all') params.append('month', filters.month)
+
+    const response = await axios.get(`${API_BASE_URL}/reports/monthly-trends?${params.toString()}`)
+    return response.data
+  },
+
   async getDashboardSummary(filters = {}) {
     const params = new URLSearchParams()
     if (filters.warehouse && filters.warehouse !== 'all') params.append('warehouse', filters.warehouse)
@@ -91,6 +111,17 @@ export const api = {
 
   async toggleTask(taskId) {
     const response = await axios.patch(`${API_BASE_URL}/tasks/${taskId}`)
+    return response.data
+  },
+
+  async getRestockingRecommendations(budget) {
+    const params = budget !== undefined ? `?budget=${budget}` : ''
+    const response = await axios.get(`${API_BASE_URL}/restocking/recommendations${params}`)
+    return response.data
+  },
+
+  async submitRestockingOrder(orderData) {
+    const response = await axios.post(`${API_BASE_URL}/restocking/orders`, orderData)
     return response.data
   },
 

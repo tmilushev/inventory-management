@@ -21,6 +21,19 @@ def client():
         yield test_client
 
 
+@pytest.fixture(autouse=True)
+def reset_stores():
+    """Reset in-memory stores between tests."""
+    import main
+    from mock_data import purchase_orders
+    main.tasks_store.clear()
+    main.task_id_counter = 0
+    main.restocking_orders_store.clear()
+    main.restocking_order_id_counter = 0
+    purchase_orders.clear()
+    yield
+
+
 @pytest.fixture
 def sample_inventory_item():
     """Sample inventory item for testing."""
