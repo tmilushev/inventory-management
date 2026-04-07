@@ -150,6 +150,9 @@ task_id_counter = 0
 restocking_orders_store: List[dict] = []
 restocking_order_id_counter = 0
 
+# In-memory purchase order ID counter
+purchase_order_id_counter = 0
+
 # API endpoints
 @app.get("/")
 def root():
@@ -400,6 +403,8 @@ def toggle_task(task_id: str):
 @app.get("/api/restocking/recommendations")
 def get_restocking_recommendations(budget: float = 10000):
     """Get restocking recommendations within a budget, prioritized by demand gap"""
+    if budget <= 0:
+        raise HTTPException(status_code=400, detail="Budget must be positive")
     items_needing_restock = []
     for item in inventory_items:
         if item["quantity_on_hand"] < item["reorder_point"]:
@@ -418,23 +423,23 @@ def get_restocking_recommendations(budget: float = 10000):
     for item in items_needing_restock:
         if remaining_budget <= 0:
             break
-        recommended_qty = min(item["demand_gap"], math.floor(remaining_budget / item["unit_cost"]))
-        if recommended_qty <= 0:
+        quantity = min(item["demand_gap"], math.floor(remaining_budget / item["unit_cost"]))
+        if quantity <= 0:
             continue
-        if recommended_qty < 200:
+        if quantity < 200:
             lead_time_days = 4
-        elif recommended_qty <= 500:
+        elif quantity <= 500:
             lead_time_days = 8
         else:
             lead_time_days = 14
-        line_cost = recommended_qty * item["unit_cost"]
+        line_cost = quantity * item["unit_cost"]
         remaining_budget -= line_cost
         recommended_items.append({
             "item_sku": item["item_sku"],
             "item_name": item["item_name"],
             "demand_gap": item["demand_gap"],
             "unit_cost": item["unit_cost"],
-            "recommended_qty": recommended_qty,
+            "quantity": quantity,
             "line_cost": line_cost,
             "lead_time_days": lead_time_days,
         })
@@ -481,8 +486,10 @@ def get_restocking_orders():
 @app.post("/api/purchase-orders", response_model=PurchaseOrder, status_code=201)
 def create_purchase_order(po_data: CreatePurchaseOrderRequest):
     """Create a purchase order for a backlog item"""
+    global purchase_order_id_counter
+    purchase_order_id_counter += 1
     po = {
-        "id": f"po-{len(purchase_orders) + 1}",
+        "id": f"po-{purchase_order_id_counter}",
         "backlog_item_id": po_data.backlog_item_id,
         "supplier_name": po_data.supplier_name,
         "quantity": po_data.quantity,

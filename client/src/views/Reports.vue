@@ -79,7 +79,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(month, index) in monthlyData" :key="'table-' + month.month">
+              <tr v-for="(month, index) in monthlyData" :key="month.month">
                 <td><strong>{{ formatMonth(month.month) }}</strong></td>
                 <td>{{ month.order_count }}</td>
                 <td>{{ currencySymbol }}{{ formatNumber(month.revenue) }}</td>
@@ -201,9 +201,9 @@ export default {
     }
 
     const formatMonth = (monthStr) => {
-      const [year, month] = monthStr.split('-')
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-      return monthNames[parseInt(month) - 1] + ' ' + year
+      const locale = currentLocale.value === 'ja' ? 'ja-JP' : 'en-US'
+      const date = new Date(monthStr + '-01')
+      return date.toLocaleDateString(locale, { year: 'numeric', month: 'short' })
     }
 
     const getBarHeight = (revenue) => {

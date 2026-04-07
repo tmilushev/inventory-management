@@ -33,15 +33,15 @@ class TestRestockingRecommendations:
         assert data["remaining_budget"] >= 0
         assert abs(data["budget"] - data["total_cost"] - data["remaining_budget"]) < 0.01
 
-    def test_get_recommendations_zero_budget(self, client):
-        """Test that zero budget returns no items."""
+    def test_get_recommendations_zero_budget_rejected(self, client):
+        """Test that zero budget returns 400."""
         response = client.get("/api/restocking/recommendations?budget=0")
-        assert response.status_code == 200
+        assert response.status_code == 400
 
-        data = response.json()
-        assert data["budget"] == 0
-        assert len(data["items"]) == 0
-        assert data["total_cost"] == 0
+    def test_negative_budget_rejected(self, client):
+        """Test that negative budget returns 400."""
+        response = client.get("/api/restocking/recommendations?budget=-100")
+        assert response.status_code == 400
 
     def test_recommendations_sorted_by_demand_gap(self, client):
         """Test that recommendations are sorted by demand gap descending."""
@@ -75,15 +75,15 @@ class TestRestockingRecommendations:
             assert "item_name" in item
             assert "demand_gap" in item
             assert "unit_cost" in item
-            assert "recommended_qty" in item
+            assert "quantity" in item
             assert "line_cost" in item
             assert "lead_time_days" in item
             assert isinstance(item["demand_gap"], int)
             assert isinstance(item["unit_cost"], (int, float))
-            assert isinstance(item["recommended_qty"], int)
+            assert isinstance(item["quantity"], int)
             assert isinstance(item["lead_time_days"], int)
-            assert item["recommended_qty"] > 0
-            assert abs(item["line_cost"] - item["recommended_qty"] * item["unit_cost"]) < 0.01
+            assert item["quantity"] > 0
+            assert abs(item["line_cost"] - item["quantity"] * item["unit_cost"]) < 0.01
 
     def test_lead_time_tiers(self, client):
         """Test that lead times follow quantity-based tiers."""
@@ -91,7 +91,7 @@ class TestRestockingRecommendations:
         assert response.status_code == 200
 
         for item in response.json()["items"]:
-            qty = item["recommended_qty"]
+            qty = item["quantity"]
             lead = item["lead_time_days"]
             if qty < 200:
                 assert lead == 4
@@ -109,7 +109,7 @@ class TestRestockingRecommendations:
         # With $500 budget, should get at least some items (cheapest is ~$19/unit)
         assert data["total_cost"] <= 500
         if len(data["items"]) > 0:
-            assert data["items"][0]["recommended_qty"] > 0
+            assert data["items"][0]["quantity"] > 0
 
 
 class TestRestockingOrders:
