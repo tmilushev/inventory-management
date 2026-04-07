@@ -13,7 +13,7 @@
       <input
         type="range"
         class="budget-slider"
-        :min="0"
+        :min="1"
         :max="50000"
         :step="500"
         v-model.number="budget"
@@ -79,7 +79,7 @@
                 <td>{{ item.item_name }}</td>
                 <td>{{ item.demand_gap }}</td>
                 <td>{{ currencySymbol }}{{ item.unit_cost.toLocaleString() }}</td>
-                <td>{{ item.recommended_qty }}</td>
+                <td>{{ item.quantity }}</td>
                 <td><strong>{{ currencySymbol }}{{ item.line_cost.toLocaleString() }}</strong></td>
                 <td>
                   <span :class="['badge', getLeadTimeBadgeClass(item.lead_time_days)]">
@@ -149,7 +149,7 @@ export default {
           items: recommendations.value.items.map(item => ({
             item_sku: item.item_sku,
             item_name: item.item_name,
-            quantity: item.recommended_qty,
+            quantity: item.quantity,
             unit_cost: item.unit_cost,
             lead_time_days: item.lead_time_days
           }))

@@ -30,6 +30,7 @@ def reset_stores():
     main.task_id_counter = 0
     main.restocking_orders_store.clear()
     main.restocking_order_id_counter = 0
+    main.purchase_order_id_counter = 0
     purchase_orders.clear()
     yield
 
