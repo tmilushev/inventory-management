@@ -6,6 +6,8 @@ export default {
     orders: '注文',
     finance: '財務',
     demandForecast: '需要予測',
+    reports: 'レポート',
+    backlog: 'バックログ',
     companyName: '触媒コンポーネンツ',
     subtitle: '在庫管理システム'
   },
@@ -186,6 +188,51 @@ export default {
       trend: 'トレンド',
       period: '期間'
     }
+  },
+
+  // Reports
+  reports: {
+    title: '業績レポート',
+    description: '四半期業績指標と月次トレンドの表示',
+    quarterlyPerformance: '四半期業績',
+    monthlyRevenueTrend: '月別収益トレンド',
+    monthOverMonth: '前月比分析',
+    quarter: '四半期',
+    totalOrders: '総注文数',
+    totalRevenue: '総収益',
+    avgOrderValue: '平均注文額',
+    fulfillmentRate: '履行率',
+    month: '月',
+    orders: '注文数',
+    revenue: '収益',
+    change: '変化',
+    growthRate: '成長率',
+    totalRevenueYTD: '総収益（年初来）',
+    avgMonthlyRevenue: '月平均収益',
+    totalOrdersYTD: '総注文数（年初来）',
+    bestQuarter: '最高業績四半期'
+  },
+
+  // Backlog
+  backlog: {
+    title: 'バックログ管理',
+    description: '在庫不足の追跡と解消',
+    highPriority: '高優先度',
+    mediumPriority: '中優先度',
+    lowPriority: '低優先度',
+    totalItems: 'バックログ総数',
+    backlogItems: 'バックログ一覧',
+    noItems: 'バックログなし - すべての注文を履行できます！',
+    orderId: '注文ID',
+    sku: 'SKU',
+    itemName: '品目名',
+    quantityNeeded: '必要数量',
+    quantityAvailable: '在庫数量',
+    shortage: '不足',
+    daysDelayed: '遅延日数',
+    priority: '優先度',
+    unitsShort: '単位不足',
+    days: '日'
   },
 
   // Filters

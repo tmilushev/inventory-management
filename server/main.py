@@ -1,3 +1,6 @@
+import math
+from datetime import datetime, timedelta
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
@@ -128,9 +131,24 @@ class Task(BaseModel):
 class CreateTaskRequest(BaseModel):
     title: str
 
+class RestockingItem(BaseModel):
+    item_sku: str
+    item_name: str
+    quantity: int
+    unit_cost: float
+    lead_time_days: int
+
+class CreateRestockingOrderRequest(BaseModel):
+    budget: float
+    items: List[RestockingItem]
+
 # In-memory task storage
 tasks_store: List[dict] = []
 task_id_counter = 0
+
+# In-memory restocking order storage
+restocking_orders_store: List[dict] = []
+restocking_order_id_counter = 0
 
 # API endpoints
 @app.get("/")
@@ -240,12 +258,25 @@ def get_recent_transactions():
     return recent_transactions
 
 @app.get("/api/reports/quarterly")
-def get_quarterly_reports():
+def get_quarterly_reports(
+    warehouse: Optional[str] = None,
+    category: Optional[str] = None,
+    month: Optional[str] = None
+):
     """Get quarterly performance reports"""
+    # Filter orders based on params
+    filtered_orders = orders
+    if warehouse and warehouse != 'all':
+        filtered_orders = [o for o in filtered_orders if o.get('warehouse') == warehouse]
+    if category and category != 'all':
+        filtered_orders = [o for o in filtered_orders if o.get('category', '').lower() == category.lower()]
+    if month and month != 'all':
+        filtered_orders = [o for o in filtered_orders if o.get('order_date', '').startswith(month)]
+
     # Calculate quarterly statistics from orders
     quarters = {}
 
-    for order in orders:
+    for order in filtered_orders:
         order_date = order.get('order_date', '')
         # Determine quarter
         if '2025-01' in order_date or '2025-02' in order_date or '2025-03' in order_date:
@@ -286,11 +317,24 @@ def get_quarterly_reports():
     return result
 
 @app.get("/api/reports/monthly-trends")
-def get_monthly_trends():
+def get_monthly_trends(
+    warehouse: Optional[str] = None,
+    category: Optional[str] = None,
+    month: Optional[str] = None
+):
     """Get month-over-month trends"""
+    # Filter orders based on params
+    filtered_orders = orders
+    if warehouse and warehouse != 'all':
+        filtered_orders = [o for o in filtered_orders if o.get('warehouse') == warehouse]
+    if category and category != 'all':
+        filtered_orders = [o for o in filtered_orders if o.get('category', '').lower() == category.lower()]
+    if month and month != 'all':
+        filtered_orders = [o for o in filtered_orders if o.get('order_date', '').startswith(month)]
+
     months = {}
 
-    for order in orders:
+    for order in filtered_orders:
         order_date = order.get('order_date', '')
         if not order_date:
             continue
@@ -352,6 +396,112 @@ def toggle_task(task_id: str):
         raise HTTPException(status_code=404, detail="Task not found")
     task["status"] = "completed" if task["status"] == "pending" else "pending"
     return task
+
+@app.get("/api/restocking/recommendations")
+def get_restocking_recommendations(budget: float = 10000):
+    """Get restocking recommendations within a budget, prioritized by demand gap"""
+    items_needing_restock = []
+    for item in inventory_items:
+        if item["quantity_on_hand"] < item["reorder_point"]:
+            demand_gap = item["reorder_point"] - item["quantity_on_hand"]
+            items_needing_restock.append({
+                "item_sku": item["sku"],
+                "item_name": item["name"],
+                "demand_gap": demand_gap,
+                "unit_cost": item["unit_cost"],
+            })
+
+    items_needing_restock.sort(key=lambda x: x["demand_gap"], reverse=True)
+
+    remaining_budget = budget
+    recommended_items = []
+    for item in items_needing_restock:
+        if remaining_budget <= 0:
+            break
+        recommended_qty = min(item["demand_gap"], math.floor(remaining_budget / item["unit_cost"]))
+        if recommended_qty <= 0:
+            continue
+        if recommended_qty < 200:
+            lead_time_days = 4
+        elif recommended_qty <= 500:
+            lead_time_days = 8
+        else:
+            lead_time_days = 14
+        line_cost = recommended_qty * item["unit_cost"]
+        remaining_budget -= line_cost
+        recommended_items.append({
+            "item_sku": item["item_sku"],
+            "item_name": item["item_name"],
+            "demand_gap": item["demand_gap"],
+            "unit_cost": item["unit_cost"],
+            "recommended_qty": recommended_qty,
+            "line_cost": line_cost,
+            "lead_time_days": lead_time_days,
+        })
+
+    total_cost = budget - remaining_budget
+    return {
+        "budget": budget,
+        "total_cost": total_cost,
+        "remaining_budget": remaining_budget,
+        "items": recommended_items,
+    }
+
+@app.post("/api/restocking/orders", status_code=201)
+def create_restocking_order(order_data: CreateRestockingOrderRequest):
+    """Submit a restocking order"""
+    global restocking_order_id_counter
+    if not order_data.items:
+        raise HTTPException(status_code=400, detail="Order must contain at least one item")
+
+    restocking_order_id_counter += 1
+    total_value = sum(item.quantity * item.unit_cost for item in order_data.items)
+    max_lead_time = max(item.lead_time_days for item in order_data.items)
+    order_date = datetime.now().isoformat()
+    expected_delivery = (datetime.now() + timedelta(days=max_lead_time)).isoformat()
+
+    order = {
+        "id": f"rst-{restocking_order_id_counter}",
+        "order_number": f"RST-{restocking_order_id_counter:04d}",
+        "budget": order_data.budget,
+        "status": "Submitted",
+        "total_value": total_value,
+        "order_date": order_date,
+        "expected_delivery": expected_delivery,
+        "items": [item.model_dump() for item in order_data.items],
+    }
+    restocking_orders_store.insert(0, order)
+    return order
+
+@app.get("/api/restocking/orders")
+def get_restocking_orders():
+    """Get all restocking orders"""
+    return restocking_orders_store
+
+@app.post("/api/purchase-orders", response_model=PurchaseOrder, status_code=201)
+def create_purchase_order(po_data: CreatePurchaseOrderRequest):
+    """Create a purchase order for a backlog item"""
+    po = {
+        "id": f"po-{len(purchase_orders) + 1}",
+        "backlog_item_id": po_data.backlog_item_id,
+        "supplier_name": po_data.supplier_name,
+        "quantity": po_data.quantity,
+        "unit_cost": po_data.unit_cost,
+        "expected_delivery_date": po_data.expected_delivery_date,
+        "status": "pending",
+        "created_date": datetime.now().strftime("%Y-%m-%d"),
+        "notes": po_data.notes,
+    }
+    purchase_orders.append(po)
+    return po
+
+@app.get("/api/purchase-orders/{backlog_item_id}", response_model=PurchaseOrder)
+def get_purchase_order(backlog_item_id: str):
+    """Get purchase order for a backlog item"""
+    po = next((po for po in purchase_orders if po["backlog_item_id"] == backlog_item_id), None)
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+    return po
 
 if __name__ == "__main__":
     import uvicorn
